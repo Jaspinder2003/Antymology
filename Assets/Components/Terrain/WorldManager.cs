@@ -45,6 +45,11 @@ public GameObject queenPrefab;
         /// </summary>
         private SimplexNoise SimplexNoise;
 
+        /// <summary>
+        /// Tracks the current number of nest blocks in the world.
+        /// </summary>
+        public int NestBlockCount { get; private set; } = 0;
+
         #endregion
 
         #region Initialization
@@ -200,6 +205,11 @@ public GameObject queenPrefab;
                 Debug.Log("Attempted to set a block which didn't exist");
                 return;
             }
+
+            // Track nest block count changes
+            AbstractBlock oldBlock = Blocks[WorldXCoordinate, WorldYCoordinate, WorldZCoordinate];
+            if (oldBlock is NestBlock && !(toSet is NestBlock)) NestBlockCount--;
+            if (!(oldBlock is NestBlock) && toSet is NestBlock) NestBlockCount++;
 
             Blocks[WorldXCoordinate, WorldYCoordinate, WorldZCoordinate] = toSet;
 
@@ -449,6 +459,7 @@ public GameObject queenPrefab;
 
         public void ResetWorld()
         {
+            NestBlockCount = 0;
             GenerateData();
             // Need to force chunk updates?
             for (int x = 0; x < Chunks.GetLength(0); x++)

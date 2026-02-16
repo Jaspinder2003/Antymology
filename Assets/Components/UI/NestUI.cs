@@ -1,52 +1,81 @@
 using UnityEngine;
 using Antymology.Terrain;
+using Antymology.Components.Agents;
 
 namespace Antymology.Components.UI
 {
     public class NestUI : MonoBehaviour
     {
-        private float _nextUpdate = 0f;
-        private int _nestCount = 0;
+        private GUIStyle _boxStyle;
+        private GUIStyle _headerStyle;
+        private GUIStyle _labelStyle;
+        private bool _stylesInitialized = false;
+
+        private void InitStyles()
+        {
+            _boxStyle = new GUIStyle(GUI.skin.box);
+            _boxStyle.normal.background = MakeTex(2, 2, new Color(0f, 0f, 0f, 0.7f));
+            _boxStyle.padding = new RectOffset(10, 10, 10, 10);
+
+            _headerStyle = new GUIStyle(GUI.skin.label);
+            _headerStyle.fontSize = 16;
+            _headerStyle.fontStyle = FontStyle.Bold;
+            _headerStyle.normal.textColor = Color.white;
+
+            _labelStyle = new GUIStyle(GUI.skin.label);
+            _labelStyle.fontSize = 13;
+            _labelStyle.normal.textColor = new Color(0.9f, 0.9f, 0.9f);
+
+            _stylesInitialized = true;
+        }
+
+        private Texture2D MakeTex(int width, int height, Color color)
+        {
+            Color[] pix = new Color[width * height];
+            for (int i = 0; i < pix.Length; i++) pix[i] = color;
+            Texture2D tex = new Texture2D(width, height);
+            tex.SetPixels(pix);
+            tex.Apply();
+            return tex;
+        }
 
         private void OnGUI()
         {
-            GUI.Label(new Rect(10, 10, 200, 20), $"Nest Blocks: {_nestCount}");
-            
-            // Also display generation info if EvolutionManager exists
+            if (!_stylesInitialized) InitStyles();
+
+            float panelWidth = 240f;
+            float panelHeight = 200f;
+
+            GUILayout.BeginArea(new Rect(10, 10, panelWidth, panelHeight), _boxStyle);
+
+            GUILayout.Label("Antymology", _headerStyle);
+            GUILayout.Space(4);
+
+            // Nest block count
+            int nestCount = WorldManager.Instance != null ? WorldManager.Instance.NestBlockCount : 0;
+            GUILayout.Label($"Nest Blocks:  {nestCount}", _labelStyle);
+
+            // Generation info
             if (Configuration.EvolutionManager.Instance != null)
             {
-                GUI.Label(new Rect(10, 30, 200, 20), $"Generation: {Configuration.EvolutionManager.Instance.GenerationCount}");
-                GUI.Label(new Rect(10, 50, 200, 20), $"Time Remaining: {Configuration.EvolutionManager.Instance.TimeRemaining:F1}");
+                var evo = Configuration.EvolutionManager.Instance;
+                GUILayout.Label($"Generation:   {evo.GenerationCount}", _labelStyle);
+                GUILayout.Label($"Time Left:    {evo.TimeRemaining:F1}s", _labelStyle);
             }
-        }
 
-        private void Update()
-        {
-            if (Time.time > _nextUpdate)
-            {
-                _nextUpdate = Time.time + 0.5f; // Update every 0.5s to save perf
-                CountNestBlocks();
-            }
-        }
+            // Ant count
+            int antCount = AntManager.Instance != null ? AntManager.Instance.AntCount : 0;
+            GUILayout.Label($"Ants Alive:   {antCount}", _labelStyle);
 
-        private void CountNestBlocks()
-        {
-            _nestCount = 0;
-            // Iterate all blocks (expensive? maybe optimization needed later)
-            // WorldManager doesn't have a quick list of nest blocks.
-            // Using GetBlockLayerDimension
-            
-            // Actually, querying every block 64x64x128 is too slow for Update.
-            // Better to have WorldManager (or us) track/cache it?
-            // "You must create a basic UI which shows the current number of nest blocks in the world"
-            
-            // Optimization: WorldManager.SetBlock could trigger an event.
-            // For now, let's do a sampling or just trust it's fast enough for small 16x4x16 chunks?
-            // 16 chunks * 8 blocks = 128 blocks width.
-            // 128 * 32 * 128 = ~500k blocks. Too many to iterate.
-            
-            // I will add a static counter to NestBlock? No, blocks are re-created.
-            // WorldManager should track it.
+            // Mulch consumed
+            int mulch = AntManager.Instance != null ? AntManager.Instance.MulchConsumed : 0;
+            GUILayout.Label($"Mulch Eaten:  {mulch}", _labelStyle);
+
+            // Ants on acid
+            int onAcid = AntManager.Instance != null ? AntManager.Instance.AntsOnAcid : 0;
+            GUILayout.Label($"Ants on Acid: {onAcid}", _labelStyle);
+
+            GUILayout.EndArea();
         }
     }
 }

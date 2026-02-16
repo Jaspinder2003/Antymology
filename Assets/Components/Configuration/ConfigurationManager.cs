@@ -55,7 +55,7 @@ public class ConfigurationManager : Singleton<ConfigurationManager>
 
     // Evolution Settings
     public int Population_Size = 20;
-    public float Generation_Duration = 30f; // Seconds
+    public float Generation_Duration = 120f; // Seconds — long enough for ants to die
     public float Mutation_Rate = 0.1f;
     public float Mutation_Strength = 0.2f;
 }

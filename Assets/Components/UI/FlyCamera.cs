@@ -29,9 +29,21 @@ namespace Antymology.UI
             lastMouse = new Vector3(-lastMouse.y * camSens, lastMouse.x * camSens, 0);
             lastMouse = new Vector3(transform.eulerAngles.x + lastMouse.x, transform.eulerAngles.y + lastMouse.y, 0);
 
-            if (Input.GetMouseButton(2))
+            // Middle mouse OR right mouse to rotate (right-click = two-finger click on trackpad)
+            if (Input.GetMouseButton(2) || Input.GetMouseButton(1))
                 transform.eulerAngles = lastMouse;
             lastMouse = Input.mousePosition;
+
+            // Arrow keys to rotate camera (laptop-friendly)
+            float rotSpeed = 80f * Time.deltaTime;
+            if (Input.GetKey(KeyCode.UpArrow))
+                transform.Rotate(-rotSpeed, 0, 0, Space.Self);
+            if (Input.GetKey(KeyCode.DownArrow))
+                transform.Rotate(rotSpeed, 0, 0, Space.Self);
+            if (Input.GetKey(KeyCode.LeftArrow))
+                transform.Rotate(0, -rotSpeed, 0, Space.World);
+            if (Input.GetKey(KeyCode.RightArrow))
+                transform.Rotate(0, rotSpeed, 0, Space.World);
             //Mouse  camera angle done.  
 
             //Keyboard commands

@@ -9,12 +9,41 @@ namespace Antymology.Components.Agents
         private List<Ant> _ants = new List<Ant>();
         private Dictionary<Vector3Int, List<Ant>> _antOccupancy = new Dictionary<Vector3Int, List<Ant>>();
 
+        public int AntCount => _ants.Count;
+
+        /// <summary>How many mulch blocks have been consumed this generation.</summary>
+        public int MulchConsumed { get; set; }
+
+        /// <summary>How many ants are currently standing on acidic blocks.</summary>
+        public int AntsOnAcid
+        {
+            get
+            {
+                int count = 0;
+                foreach (var ant in _ants)
+                {
+                    if (ant == null) continue;
+                    int groundY = ant.CurrentPosition.y - 1;
+                    if (groundY < 0) continue;
+                    var block = WorldManager.Instance.GetBlock(ant.CurrentPosition.x, groundY, ant.CurrentPosition.z);
+                    if (block is AcidicBlock) count++;
+                }
+                return count;
+            }
+        }
+
         public void RegisterAnt(Ant ant)
         {
             if (!_ants.Contains(ant))
             {
                 _ants.Add(ant);
-                UpdateOccupancy(ant, ant.CurrentPosition);
+                // Initial registration: add to occupancy at current position
+                Vector3Int pos = ant.CurrentPosition;
+                if (!_antOccupancy.ContainsKey(pos))
+                {
+                    _antOccupancy[pos] = new List<Ant>();
+                }
+                _antOccupancy[pos].Add(ant);
             }
         }
 
@@ -27,9 +56,9 @@ namespace Antymology.Components.Agents
             }
         }
 
-        public void UpdateOccupancy(Ant ant, Vector3Int newPos)
+        public void UpdateOccupancy(Ant ant, Vector3Int oldPos, Vector3Int newPos)
         {
-            RemoveFromOccupancy(ant, ant.CurrentPosition);
+            RemoveFromOccupancy(ant, oldPos);
             
             if (!_antOccupancy.ContainsKey(newPos))
             {
@@ -57,6 +86,13 @@ namespace Antymology.Components.Agents
                 return _antOccupancy[pos];
             }
             return new List<Ant>();
+        }
+
+        public void ClearAll()
+        {
+            _ants.Clear();
+            _antOccupancy.Clear();
+            MulchConsumed = 0;
         }
 
         private void FixedUpdate()
