@@ -5,7 +5,7 @@ Antymology is an emergent computing simulation developed for CPSC 565. This proj
 
 The simulation utilizes an **Evolutionary Algorithm** combined with a simple **Neural Network** (Perceptron) to evolve ant behaviors over successive generations. The goal of the colony is to maximize the production of Nest Blocks.
 
-![Simulation Screenshot](SimulationScreenshot.png)
+(SimulationScreenshot.png)
 
 ## Features
 
