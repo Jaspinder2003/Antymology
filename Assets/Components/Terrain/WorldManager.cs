@@ -8,13 +8,17 @@ namespace Antymology.Terrain
 {
     public class WorldManager : Singleton<WorldManager>
     {
-
         #region Fields
 
-        /// <summary>
-        /// The prefab containing the ant.
-        /// </summary>
-        public GameObject antPrefab;
+/// The prefab containing the ant.
+/// </summary>
+public GameObject antPrefab;
+
+/// <summary>
+/// The prefab containing the queen.
+/// </summary>
+public GameObject queenPrefab;
+
 
         /// <summary>
         /// The material used for eech block.
@@ -80,7 +84,8 @@ namespace Antymology.Terrain
             Camera.main.transform.position = new Vector3(0 / 2, Blocks.GetLength(1), 0);
             Camera.main.transform.LookAt(new Vector3(Blocks.GetLength(0), 0, Blocks.GetLength(2)));
 
-            GenerateAnts();
+            // Hand over control to EvolutionManager
+            Antymology.Components.Configuration.EvolutionManager.Instance.StartGeneration();
         }
 
         /// <summary>
@@ -88,7 +93,54 @@ namespace Antymology.Terrain
         /// </summary>
         private void GenerateAnts()
         {
-            throw new NotImplementedException();
+            if (antPrefab == null)
+            {
+                Debug.LogError("antPrefab is not assigned in WorldManager (Inspector).");
+                return;
+            }
+
+            int spawned = 0;
+
+            // How many ants to spawn (use config if you have one; otherwise default)
+            int target = 10; // change later if you find a config value for this
+
+            // Try a bunch of random positions until we spawn enough
+            int maxAttempts = target * 200;
+
+            for (int attempt = 0; attempt < maxAttempts && spawned < target; attempt++)
+            {
+                int x = RNG.Next(1, Blocks.GetLength(0) - 1);
+                int z = RNG.Next(1, Blocks.GetLength(2) - 1);
+
+                // Find the topmost solid block at (x,z)
+                int ySolid = -1;
+                for (int y = Blocks.GetLength(1) - 2; y >= 1; y--)
+                {
+                    // "solid" means NOT air
+                    if (Blocks[x, y, z] is not AirBlock)
+                    {
+                        ySolid = y;
+                        break;
+                    }
+                }
+
+                if (ySolid < 0) continue;
+
+                // Don’t spawn on container blocks (borders / spheres)
+                if (Blocks[x, ySolid, z] is ContainerBlock) continue;
+
+                // Spawn the ant one block ABOVE the surface if that is air
+                int ySpawn = ySolid + 1;
+                if (ySpawn >= Blocks.GetLength(1) - 1) continue;
+                if (Blocks[x, ySpawn, z] is not AirBlock) continue;
+
+                Vector3 spawnPos = new Vector3(x, ySpawn + 0.5f, z); // +0.5 centers it visually
+                Instantiate(antPrefab, spawnPos, Quaternion.identity);
+
+                spawned++;
+            }
+
+            Debug.Log($"Spawned {spawned}/{target} ants.");
         }
 
         #endregion
@@ -116,38 +168,22 @@ namespace Antymology.Terrain
 
         /// <summary>
         /// Retrieves an abstract block type at the desired local coordinates within a chunk.
+        /// FIXED: convert chunk/local to world coords correctly.
         /// </summary>
         public AbstractBlock GetBlock(
             int ChunkXCoordinate, int ChunkYCoordinate, int ChunkZCoordinate,
             int LocalXCoordinate, int LocalYCoordinate, int LocalZCoordinate)
         {
-            if
-            (
-                LocalXCoordinate < 0 ||
-                LocalYCoordinate < 0 ||
-                LocalZCoordinate < 0 ||
-                LocalXCoordinate >= Blocks.GetLength(0) ||
-                LocalYCoordinate >= Blocks.GetLength(1) ||
-                LocalZCoordinate >= Blocks.GetLength(2) ||
-                ChunkXCoordinate < 0 ||
-                ChunkYCoordinate < 0 ||
-                ChunkZCoordinate < 0 ||
-                ChunkXCoordinate >= Blocks.GetLength(0) ||
-                ChunkYCoordinate >= Blocks.GetLength(1) ||
-                ChunkZCoordinate >= Blocks.GetLength(2) 
-            )
-                return new AirBlock();
+            int worldX = ChunkXCoordinate * ConfigurationManager.Instance.Chunk_Diameter + LocalXCoordinate;
+            int worldY = ChunkYCoordinate * ConfigurationManager.Instance.Chunk_Diameter + LocalYCoordinate;
+            int worldZ = ChunkZCoordinate * ConfigurationManager.Instance.Chunk_Diameter + LocalZCoordinate;
 
-            return Blocks
-            [
-                ChunkXCoordinate * LocalXCoordinate,
-                ChunkYCoordinate * LocalYCoordinate,
-                ChunkZCoordinate * LocalZCoordinate
-            ];
+            return GetBlock(worldX, worldY, worldZ);
         }
 
         /// <summary>
         /// sets an abstract block type at the desired world coordinates.
+        /// FIXED: bounds checks use >= (not >).
         /// </summary>
         public void SetBlock(int WorldXCoordinate, int WorldYCoordinate, int WorldZCoordinate, AbstractBlock toSet)
         {
@@ -156,9 +192,9 @@ namespace Antymology.Terrain
                 WorldXCoordinate < 0 ||
                 WorldYCoordinate < 0 ||
                 WorldZCoordinate < 0 ||
-                WorldXCoordinate > Blocks.GetLength(0) ||
-                WorldYCoordinate > Blocks.GetLength(1) ||
-                WorldZCoordinate > Blocks.GetLength(2)
+                WorldXCoordinate >= Blocks.GetLength(0) ||
+                WorldYCoordinate >= Blocks.GetLength(1) ||
+                WorldZCoordinate >= Blocks.GetLength(2)
             )
             {
                 Debug.Log("Attempted to set a block which didn't exist");
@@ -177,44 +213,18 @@ namespace Antymology.Terrain
 
         /// <summary>
         /// sets an abstract block type at the desired local coordinates within a chunk.
+        /// FIXED: convert chunk/local to world coords correctly (and reuse SetBlock(world)).
         /// </summary>
         public void SetBlock(
             int ChunkXCoordinate, int ChunkYCoordinate, int ChunkZCoordinate,
             int LocalXCoordinate, int LocalYCoordinate, int LocalZCoordinate,
             AbstractBlock toSet)
         {
-            if
-            (
-                LocalXCoordinate < 0 ||
-                LocalYCoordinate < 0 ||
-                LocalZCoordinate < 0 ||
-                LocalXCoordinate > Blocks.GetLength(0) ||
-                LocalYCoordinate > Blocks.GetLength(1) ||
-                LocalZCoordinate > Blocks.GetLength(2) ||
-                ChunkXCoordinate < 0 ||
-                ChunkYCoordinate < 0 ||
-                ChunkZCoordinate < 0 ||
-                ChunkXCoordinate > Blocks.GetLength(0) ||
-                ChunkYCoordinate > Blocks.GetLength(1) ||
-                ChunkZCoordinate > Blocks.GetLength(2)
-            )
-            {
-                Debug.Log("Attempted to set a block which didn't exist");
-                return;
-            }
-            Blocks
-            [
-                ChunkXCoordinate * LocalXCoordinate,
-                ChunkYCoordinate * LocalYCoordinate,
-                ChunkZCoordinate * LocalZCoordinate
-            ] = toSet;
+            int worldX = ChunkXCoordinate * ConfigurationManager.Instance.Chunk_Diameter + LocalXCoordinate;
+            int worldY = ChunkYCoordinate * ConfigurationManager.Instance.Chunk_Diameter + LocalYCoordinate;
+            int worldZ = ChunkZCoordinate * ConfigurationManager.Instance.Chunk_Diameter + LocalZCoordinate;
 
-            SetChunkContainingBlockToUpdate
-            (
-                ChunkXCoordinate * LocalXCoordinate,
-                ChunkYCoordinate * LocalYCoordinate,
-                ChunkZCoordinate * LocalZCoordinate
-            );
+            SetBlock(worldX, worldY, worldZ, toSet);
         }
 
         #endregion
@@ -332,14 +342,12 @@ namespace Antymology.Terrain
         /// </summary>
         private void GenerateSphericalContainers()
         {
-
             //Generate hazards
             for (int i = 0; i < ConfigurationManager.Instance.Number_Of_Conatiner_Spheres; i++)
             {
                 int xCoord = RNG.Next(0, Blocks.GetLength(0));
                 int zCoord = RNG.Next(0, Blocks.GetLength(2));
                 int yCoord = RNG.Next(0, Blocks.GetLength(1));
-
 
                 //Generate a sphere around this point overriding non-air blocks
                 for (int HX = xCoord - ConfigurationManager.Instance.Conatiner_Sphere_Radius; HX < xCoord + ConfigurationManager.Instance.Conatiner_Sphere_Radius; HX++)
@@ -371,9 +379,6 @@ namespace Antymology.Terrain
         /// Also tells all 4 neighbours to update (as an altered block might exist on the
         /// edge of a chunk).
         /// </summary>
-        /// <param name="worldXCoordinate"></param>
-        /// <param name="worldYCoordinate"></param>
-        /// <param name="worldZCoordinate"></param>
         private void SetChunkContainingBlockToUpdate(int worldXCoordinate, int worldYCoordinate, int worldZCoordinate)
         {
             //Updates the chunk containing this block
@@ -381,9 +386,9 @@ namespace Antymology.Terrain
             int updateY = Mathf.FloorToInt(worldYCoordinate / ConfigurationManager.Instance.Chunk_Diameter);
             int updateZ = Mathf.FloorToInt(worldZCoordinate / ConfigurationManager.Instance.Chunk_Diameter);
             Chunks[updateX, updateY, updateZ].updateNeeded = true;
-            
+
             // Also flag all 6 neighbours for update as well
-            if(updateX - 1 >= 0)
+            if (updateX - 1 >= 0)
                 Chunks[updateX - 1, updateY, updateZ].updateNeeded = true;
             if (updateX + 1 < Chunks.GetLength(0))
                 Chunks[updateX + 1, updateY, updateZ].updateNeeded = true;
@@ -395,7 +400,9 @@ namespace Antymology.Terrain
 
             if (updateZ - 1 >= 0)
                 Chunks[updateX, updateY, updateZ - 1].updateNeeded = true;
-            if (updateX + 1 < Chunks.GetLength(2))
+
+            // FIXED: check updateZ + 1 (not updateX + 1)
+            if (updateZ + 1 < Chunks.GetLength(2))
                 Chunks[updateX, updateY, updateZ + 1].updateNeeded = true;
         }
 
@@ -414,7 +421,8 @@ namespace Antymology.Terrain
                 for (int z = 0; z < Chunks.GetLength(2); z++)
                     for (int y = 0; y < Chunks.GetLength(1); y++)
                     {
-                        GameObject temp = new GameObject();
+                        // OPTIONAL: name the chunk object for sanity
+                        GameObject temp = new GameObject($"Chunk_{x}_{y}_{z}");
                         temp.transform.parent = chunkObg.transform;
                         temp.transform.position = new Vector3
                         (
@@ -433,6 +441,21 @@ namespace Antymology.Terrain
         }
 
         #endregion
+
+        public int GetBlockLayerDimension(int dim)
+        {
+            return Blocks.GetLength(dim);
+        }
+
+        public void ResetWorld()
+        {
+            GenerateData();
+            // Need to force chunk updates?
+            for (int x = 0; x < Chunks.GetLength(0); x++)
+                for (int y = 0; y < Chunks.GetLength(1); y++)
+                    for (int z = 0; z < Chunks.GetLength(2); z++)
+                        Chunks[x, y, z].updateNeeded = true;
+        }
 
         #endregion
     }

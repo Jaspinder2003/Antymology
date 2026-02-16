@@ -48,5 +48,14 @@ public class ConfigurationManager : Singleton<ConfigurationManager>
     /// <summary>
     /// The radius of each acidic region
     /// </summary>
+    /// <summary>
+    /// The radius of each acidic region
+    /// </summary>
     public int Conatiner_Sphere_Radius = 20;
+
+    // Evolution Settings
+    public int Population_Size = 20;
+    public float Generation_Duration = 30f; // Seconds
+    public float Mutation_Rate = 0.1f;
+    public float Mutation_Strength = 0.2f;
 }
